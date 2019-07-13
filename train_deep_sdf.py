@@ -502,7 +502,7 @@ def main_function(experiment_directory, continue_from, batch_split):
         epochs_left = num_epochs - epoch
         elapsed_str = datetime.timedelta(seconds=int(seconds_elapsed))
         time_left_str = datetime.timedelta(seconds=int(seconds_elapsed * epochs_left))
-        logging.info("epoch {}/{} took {}  estimated time left: {}".format(epoch,num_epochs, seconds_elapsed, ))
+        logging.info("epoch {}/{} took {}  estimated time left: {}".format(epoch,num_epochs, elapsed_str, time_left_str))
 
         lr_log.append([schedule.get_learning_rate(epoch) for schedule in lr_schedules])
 
