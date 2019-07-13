@@ -18,6 +18,25 @@
 
 #include "Utils.h"
 
+void CheckGLError(int lineNum){
+  const char * str;
+  GLenum err = glGetError();
+  while(err != GL_NO_ERROR){
+    if(err == GL_INVALID_ENUM)
+      str = "GL_INVALID_ENUM";
+    if(err == GL_INVALID_VALUE)
+      str = "GL_INVALID_VALUE";
+    if(err == GL_INVALID_OPERATION)
+      str = "GL_INVALID_OPERATION";
+    if(err == GL_INVALID_FRAMEBUFFER_OPERATION)
+      str = "GL_INVALID_FRAMEBUFFER_OPERATION";
+    if(err == GL_OUT_OF_MEMORY)
+      str = "GL_OUT_OF_MEMORY";
+
+    std::cout << "GL ERROR: " << str << "  line: " << lineNum << std::endl;
+    err = glGetError();
+  }
+}
 extern pangolin::GlSlProgram GetShaderProgram();
 
 void SampleFromSurface(pangolin::Geometry &geom,
@@ -322,6 +341,8 @@ int main(int argc, char **argv) {
   glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
   glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 
+  CheckGLError(__LINE__);
+
   pangolin::Geometry geom = pangolin::LoadGeometry(meshFileName);
 
   std::cout << geom.objects.size() << " objects" << std::endl;
@@ -392,17 +413,19 @@ int main(int argc, char **argv) {
     pangolin::CreateWindowAndBind("Main", 640, 480);
   else
     pangolin::CreateWindowAndBind("Main", 1, 1);
+
+  CheckGLError(__LINE__);
+
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_DITHER);
   glDisable(GL_POINT_SMOOTH);
   glDisable(GL_LINE_SMOOTH);
   glDisable(GL_POLYGON_SMOOTH);
-  glHint(GL_POINT_SMOOTH, GL_DONT_CARE);
-  glHint(GL_LINE_SMOOTH, GL_DONT_CARE);
+  //glHint(GL_POINT_SMOOTH, GL_DONT_CARE);
+  //glHint(GL_LINE_SMOOTH, GL_DONT_CARE);
   glHint(GL_POLYGON_SMOOTH_HINT, GL_DONT_CARE);
   glDisable(GL_MULTISAMPLE_ARB);
   glShadeModel(GL_FLAT);
-
   // Define Projection and initial ModelView matrix
   pangolin::OpenGlRenderState s_cam(
       //                pangolin::ProjectionMatrix(640,480,420,420,320,240,0.05,100),
@@ -421,6 +444,7 @@ int main(int argc, char **argv) {
 
   pangolin::GlSlProgram prog = GetShaderProgram();
 
+  CheckGLError(__LINE__);
   if (vis) {
     pangolin::View &d_cam = pangolin::CreateDisplay()
                                 .SetBounds(0.0, 1.0, 0.0, 1.0, -640.0f / 480.0f)
@@ -453,7 +477,7 @@ int main(int argc, char **argv) {
   pangolin::GlTexture normals(w, h, GL_RGBA32F);
   pangolin::GlTexture vertices(w, h, GL_RGBA32F);
   pangolin::GlFramebuffer framebuffer(vertices, normals, zbuffer);
-
+  CheckGLError(__LINE__);
   // View points around a sphere.
   std::vector<Eigen::Vector3f> views =
       EquiDistPointsOnSphere(100, max_dist * 1.1);
@@ -468,15 +492,18 @@ int main(int argc, char **argv) {
   int total_obs = 0;
   int wrong_obs = 0;
 
+  std::cout << "processing " << views.size() << " views" << std::endl;
   for (unsigned int v = 0; v < views.size(); v++) {
     // change camera location
     s_cam2.SetModelViewMatrix(pangolin::ModelViewLookAt(
         views[v][0], views[v][1], views[v][2], 0, 0, 0, pangolin::AxisY));
+    CheckGLError(__LINE__);
     // Draw the scene to the framebuffer
     framebuffer.Bind();
     glViewport(0, 0, w, h);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    CheckGLError(__LINE__);
     prog.Bind();
     prog.SetUniform("MVP", s_cam2.GetProjectionModelViewMatrix());
     prog.SetUniform("V", s_cam2.GetModelViewMatrix());
@@ -485,9 +512,11 @@ int main(int argc, char **argv) {
     prog.SetUniform("ttt", 1.0, 0, 0, 1);
     pangolin::GlDraw(prog, gl_geom, nullptr);
     prog.Unbind();
+    CheckGLError(__LINE__);
 
     framebuffer.Unbind();
 
+    CheckGLError(__LINE__);
     pangolin::TypedImage img_normals;
     normals.Download(img_normals);
     std::vector<Eigen::Vector4f> im_norms = ValidPointsAndTrisFromIm(
@@ -502,6 +531,7 @@ int main(int argc, char **argv) {
     point_verts.insert(point_verts.end(), im_verts.begin(), im_verts.end());
   }
 
+  std::cout << "done setting up views" << std::endl;
   int bad_tri = 0;
   for (unsigned int t; t < tri_id_normal_test.size(); t++) {
     if (tri_id_normal_test[t][3] < 0.0f)
@@ -557,12 +587,14 @@ int main(int argc, char **argv) {
   }
 
   std::cout << "num points sampled: " << xyz.size() << std::endl;
+  std::cout << "writing to disk: " << npyFileName << std::endl;
   std::size_t save_npz = npyFileName.find("npz");
   if (save_npz == std::string::npos)
     writeSDFToNPY(xyz, sdf, npyFileName);
   else {
     writeSDFToNPZ(xyz, sdf, npyFileName, true);
   }
+  std::cout << "done writing to disk: " << npyFileName << std::endl;
 
   return 0;
 }
