@@ -47,6 +47,7 @@ def filter_classes(patterns, classes):
         return filter_classes_glob(patterns, classes)
 
 
+#HUGE HACK to get a counter into the thread function
 class Counter:
     count = 0
 
@@ -70,6 +71,8 @@ def process_mesh(count, mesh_filepath, target_filepath, executable, additional_a
     ] + additional_args
 
     subproc = subprocess.Popen(command, stdout=subprocess.DEVNULL)
+    #uncomment to see all the command output
+    #subproc = subprocess.Popen(command)
     subproc.wait()
 
 
