@@ -47,8 +47,20 @@ def filter_classes(patterns, classes):
         return filter_classes_glob(patterns, classes)
 
 
-def process_mesh(mesh_filepath, target_filepath, executable, additional_args):
-    logging.info(mesh_filepath + " --> " + target_filepath)
+class Counter:
+    count = 0
+
+    @staticmethod
+    def get_next():
+        v = Counter.count
+        Counter.count = v + 1
+        return v
+
+def process_mesh(count, mesh_filepath, target_filepath, executable, additional_args):
+    #logging.info("mesh " + index + "/" + count + " " + mesh_filepath + " --> " + target_filepath)
+    index = Counter.get_next()
+    msg = "Mesh {:d}/{:d} {} --> {}".format(index, count, mesh_filepath, target_filepath)
+    logging.info(msg)
     command = [
         executable,
         "-m",
@@ -272,6 +284,7 @@ if __name__ == "__main__":
     #TO TEST THE EXECUTABLE ON THE COMMAND LINE:
     # bin/PreprocessMesh -m ShapeNetCore.v2/04256520/1037fd31d12178d396f164a988ef37cc/models/model_normalized.obj -o test.npz
     '''
+    num_meshes = len(meshes_targets_and_specific_args)
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=int(args.num_threads)
     ) as executor:
@@ -283,6 +296,7 @@ if __name__ == "__main__":
         ) in meshes_targets_and_specific_args:
             executor.submit(
                 process_mesh,
+                num_meshes,
                 mesh_filepath,
                 target_filepath,
                 executable,
