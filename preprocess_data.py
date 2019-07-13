@@ -261,12 +261,16 @@ if __name__ == "__main__":
                 logging.warning(
                     "Multiple meshes found for instance " + instance_dir
                 )
+    '''
     # The following is debugging the 
     mesh_filepath, target_filepath, specific_args = meshes_targets_and_specific_args[0]
     print("mesh_filepath {} target_filepath {} specific_args {}".format(mesh_filepath, target_filepath, specific_args))
     print(executable)
     print("---------------------------------")
     process_mesh(mesh_filepath, target_filepath, executable, specific_args + additional_general_args)
+
+    #TO TEST THE EXECUTABLE ON THE COMMAND LINE:
+    # bin/PreprocessMesh -m ShapeNetCore.v2/04256520/1037fd31d12178d396f164a988ef37cc/models/model_normalized.obj -o test.npz
     '''
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=int(args.num_threads)
@@ -286,4 +290,4 @@ if __name__ == "__main__":
             )
 
         executor.shutdown()
-    '''
+    
