@@ -11,6 +11,7 @@ import math
 import numpy as np
 import json
 import time
+import datetime
 
 import deep_sdf
 import deep_sdf.workspace as ws
@@ -427,7 +428,7 @@ def main_function(experiment_directory, continue_from, batch_split):
 
         start = time.time()
 
-        logging.info("epoch {}...".format(epoch))
+        logging.info("epoch {}/{}...".format(epoch,num_epochs))
 
         decoder.train()
 
@@ -498,6 +499,11 @@ def main_function(experiment_directory, continue_from, batch_split):
         seconds_elapsed = end - start
         timing_log.append(seconds_elapsed)
 
+        epochs_left = num_epochs - epoch
+        elapsed_str = datetime.timedelta(seconds=int(seconds_elapsed))
+        time_left_str = datetime.timedelta(seconds=int(seconds_elapsed * epochs_left))
+        logging.info("epoch {}/{} took {}  estimated time left: {}".format(epoch,num_epochs, seconds_elapsed, ))
+
         lr_log.append([schedule.get_learning_rate(epoch) for schedule in lr_schedules])
 
         lat_mag_log.append(get_mean_latent_vector_magnitude(lat_vecs))
@@ -543,7 +549,7 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         "--batch_split",
         dest="batch_split",
-        default=1,
+        default=4,
         help="This splits the batch into separate subbatches which are processed separately, with "
         + "gradients accumulated across all subbatches. This allows for training with large "
         + "effective batch sizes in memory constrained environments.",
