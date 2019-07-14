@@ -127,6 +127,9 @@ class SDFSamples(torch.utils.data.Dataset):
         self.load_ram = load_ram
 
         if load_ram:
+            logging.info(
+                "loading into ram " + str(len(self.npyfiles)) + " shapes from data source " + data_source
+            )
             self.loaded_data = []
             for f in self.npyfiles:
                 filename = os.path.join(self.data_source, ws.sdf_samples_subdir, f)
@@ -139,6 +142,9 @@ class SDFSamples(torch.utils.data.Dataset):
                         neg_tensor[torch.randperm(neg_tensor.shape[0])],
                     ]
                 )
+            logging.info(
+                "done loading into ram " + str(len(self.npyfiles)) + " shapes from data source " + data_source
+            )
 
     def __len__(self):
         return len(self.npyfiles)

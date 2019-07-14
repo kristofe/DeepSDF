@@ -329,7 +329,7 @@ def main_function(experiment_directory, continue_from, batch_split):
         train_split = json.load(f)
 
     sdf_dataset = deep_sdf.data.SDFSamples(
-        data_source, train_split, num_samp_per_scene, load_ram=False
+        data_source, train_split, num_samp_per_scene, load_ram=True
     )
 
     num_data_loader_threads = get_spec_with_default(specs, "DataLoaderThreads", 1)
@@ -549,7 +549,7 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         "--batch_split",
         dest="batch_split",
-        default=4,
+        default=1,
         help="This splits the batch into separate subbatches which are processed separately, with "
         + "gradients accumulated across all subbatches. This allows for training with large "
         + "effective batch sizes in memory constrained environments.",
