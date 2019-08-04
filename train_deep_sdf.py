@@ -234,7 +234,7 @@ def main_function(experiment_directory, continue_from, batch_split):
 
     logging.debug(specs["NetworkSpecs"])
 
-    latent_size = specs["CodeLength"]
+    latent_size = specs["CodeLength"] #256
 
     checkpoints = list(
         range(
@@ -250,7 +250,7 @@ def main_function(experiment_directory, continue_from, batch_split):
 
     lr_schedules = get_learning_rate_schedules(specs)
 
-    grad_clip = get_spec_with_default(specs, "GradientClipNorm", None)
+    grad_clip = get_spec_with_default(specs, "GradientClipNorm", None) #None
     if not grad_clip is None:
         logging.debug("clipping gradients to max norm {}".format(grad_clip))
 
@@ -289,13 +289,13 @@ def main_function(experiment_directory, continue_from, batch_split):
         var = torch.var(lat_mat, 0)
         return mean, var
 
-    target_std = get_spec_with_default(specs, "CodeTargetStdDev", 1.0)
+    target_std = get_spec_with_default(specs, "CodeTargetStdDev", 1.0) #1.0
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    num_samp_per_scene = specs["SamplesPerScene"]
-    scene_per_batch = specs["ScenesPerBatch"]
-    clamp_dist = specs["ClampingDistance"]
+    num_samp_per_scene = specs["SamplesPerScene"] # 16384
+    scene_per_batch = specs["ScenesPerBatch"] #16
+    clamp_dist = specs["ClampingDistance"] # 0.1
     minT = -clamp_dist
     maxT = clamp_dist
     enforce_minmax = True
@@ -303,15 +303,16 @@ def main_function(experiment_directory, continue_from, batch_split):
     if not (scene_per_batch % batch_split) == 0:
         raise RuntimeError("Unequal batch splitting is not supported.")
 
-    scene_per_subbatch = scene_per_batch // batch_split
+    scene_per_subbatch = scene_per_batch // batch_split # Batch split is 1 so -> 16
 
+    # vec length = 262,144
     min_vec = torch.ones(num_samp_per_scene * scene_per_subbatch, 1).cuda() * minT
     max_vec = torch.ones(num_samp_per_scene * scene_per_subbatch, 1).cuda() * maxT
 
-    do_code_regularization = get_spec_with_default(specs, "CodeRegularization", True)
-    code_reg_lambda = get_spec_with_default(specs, "CodeRegularizationLambda", 1e-4)
+    do_code_regularization = get_spec_with_default(specs, "CodeRegularization", True) # true
+    code_reg_lambda = get_spec_with_default(specs, "CodeRegularizationLambda", 1e-4) # 1e-4
 
-    code_bound = get_spec_with_default(specs, "CodeBound", None)
+    code_bound = get_spec_with_default(specs, "CodeBound", None) # 1.0
 
     data_aug = False
 
@@ -322,8 +323,8 @@ def main_function(experiment_directory, continue_from, batch_split):
     # if torch.cuda.device_count() > 1:
     decoder = torch.nn.DataParallel(decoder)
 
-    num_epochs = specs["NumEpochs"]
-    log_frequency = get_spec_with_default(specs, "LogFrequency", 10)
+    num_epochs = specs["NumEpochs"] # 2001
+    log_frequency = get_spec_with_default(specs, "LogFrequency", 10) #10
 
     with open(train_split_file, "r") as f:
         train_split = json.load(f)
@@ -332,12 +333,12 @@ def main_function(experiment_directory, continue_from, batch_split):
         data_source, train_split, num_samp_per_scene, load_ram=True
     )
 
-    num_data_loader_threads = get_spec_with_default(specs, "DataLoaderThreads", 1)
+    num_data_loader_threads = get_spec_with_default(specs, "DataLoaderThreads", 1) # 8
     logging.debug("loading data with {} threads".format(num_data_loader_threads))
 
     sdf_loader = data_utils.DataLoader(
         sdf_dataset,
-        batch_size=scene_per_subbatch,
+        batch_size=scene_per_subbatch, # this is the scenes in each batch.  so 16 scenes times 16384 = 262144 samples.
         shuffle=True,
         num_workers=num_data_loader_threads,
         drop_last=True,
@@ -355,6 +356,8 @@ def main_function(experiment_directory, continue_from, batch_split):
 
     code_initial_std = target_std
 
+    # number of latent vecs == number of scenes (shapenet models)
+    # start with random latents sampled froom normal dist 
     for _i in range(num_scenes):
         vec = torch.ones(1, latent_size).normal_(0, 0.1).cuda()
         vec.requires_grad = True
@@ -374,6 +377,7 @@ def main_function(experiment_directory, continue_from, batch_split):
                 "params": decoder.parameters(),
                 "lr": lr_schedules[0].get_learning_rate(0),
             },
+            #THIS IS HOW THE LATENTS ARE LEARNED...
             {"params": lat_vecs, "lr": lr_schedules[1].get_learning_rate(0)},
         ]
     )
@@ -435,27 +439,39 @@ def main_function(experiment_directory, continue_from, batch_split):
         adjust_learning_rate(lr_schedules, optimizer_all, epoch)
 
         for sdf_data, indices in sdf_loader:
+            # this gets a batch from SDFSamples which is 16 sets of samples from 16 indices 
+            # sdf_data should be (16,16384,4) ??
+            print("sdf_data.size() {}, indices.size() {}".format(sdf_data.size(), indices.size()))
+
 
             batch_loss = 0.0
 
             optimizer_all.zero_grad()
 
+            #batch_split is one so subbatch is 0 always
             for subbatch in range(batch_split):
+                print("subbatch {}".format(subbatch))
 
-                # Process the input datag
+                # Process the input data
                 latent_inputs = torch.zeros(0).cuda()
                 sdf_data.requires_grad = False
 
                 sdf_data = (sdf_data.cuda()).reshape(
                     num_samp_per_scene * scene_per_subbatch, 4
                 )
+                print("resized sdf_data.size() {}".format(sdf_data.size()))
+
                 xyz = sdf_data[:, 0:3]
                 sdf_gt = sdf_data[:, 3].unsqueeze(1)
                 for ind in indices.numpy():
                     latent_ind = lat_vecs[ind]
+                    print("latent_ind.size() {}".format(latent_ind.size()))
                     latent_repeat = latent_ind.expand(num_samp_per_scene, -1)
+                    print("latent_repeat.size() {}".format(latent_repeat.size()))
                     latent_inputs = torch.cat([latent_inputs, latent_repeat], 0)
+                    print("latent_inputs.size() {}".format(latent_inputs.size()))
                 inputs = torch.cat([latent_inputs, xyz], 1)
+                print("inputs.size() {}".format(inputs.size()))
 
                 if enforce_minmax:
                     sdf_gt = deep_sdf.utils.threshold_min_max(sdf_gt, min_vec, max_vec)
@@ -466,6 +482,8 @@ def main_function(experiment_directory, continue_from, batch_split):
                 # NN optimization
 
                 pred_sdf = decoder(inputs)
+                print("pred_sdf.size() {}".format(pred_sdf.size()))
+
 
                 if enforce_minmax:
                     pred_sdf = deep_sdf.utils.threshold_min_max(

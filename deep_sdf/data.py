@@ -91,7 +91,7 @@ def unpack_sdf_samples_from_ram(data, subsample=None):
     neg_tensor = data[1]
 
     # split the sample into half
-    half = int(subsample / 2)
+    half = int(subsample / 2) # 16384/2 = 8192
 
     pos_size = pos_tensor.shape[0]
     neg_size = neg_tensor.shape[0]
@@ -99,13 +99,18 @@ def unpack_sdf_samples_from_ram(data, subsample=None):
     pos_start_ind = random.randint(0, pos_size - half)
     sample_pos = pos_tensor[pos_start_ind : (pos_start_ind + half)]
 
-    if neg_size <= half:
+    # if the negative tensor is < 8192 samples... randomly select 8192 samples from the tensor (with repeats) 
+    if neg_size <= half: 
+        # torch rand returns a tensor size half of uniform dist [0,1) floats. 
+        # then multiply by the tensor shape to and convert to ints to get a set of 
+        # indices to sample the vector with repeats
         random_neg = (torch.rand(half) * neg_tensor.shape[0]).long()
         sample_neg = torch.index_select(neg_tensor, 0, random_neg)
     else:
         neg_start_ind = random.randint(0, neg_size - half)
         sample_neg = neg_tensor[neg_start_ind : (neg_start_ind + half)]
 
+    #combine the vectors
     samples = torch.cat([sample_pos, sample_neg], 0)
 
     return samples
@@ -115,6 +120,7 @@ class SDFSamples(torch.utils.data.Dataset):
     def __init__(
         self, data_source, split, subsample, load_ram=False, print_filename=False, num_files=1000000
     ):
+        # data_source = data, split = "examples/splits/....", subsample=16384,  load_ram=true
         self.subsample = subsample
 
         self.data_source = data_source
