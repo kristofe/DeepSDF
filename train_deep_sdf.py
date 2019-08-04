@@ -444,9 +444,7 @@ def main_function(experiment_directory, continue_from, batch_split):
 
         for sdf_data, indices in sdf_loader:
             # this gets a batch from SDFSamples which is 16 sets of samples from 16 indices 
-            # sdf_data should be (16,16384,4) ??
-            print("sdf_data.size() {}, indices.size() {}".format(sdf_data.size(), indices.size()))
-
+            # sdf_data = (16,16384,4), indices = (16)
 
             batch_loss = 0.0
 
@@ -454,7 +452,6 @@ def main_function(experiment_directory, continue_from, batch_split):
 
             #batch_split is one so subbatch is 0 always
             for subbatch in range(batch_split):
-                print("subbatch {}".format(subbatch))
 
                 # Process the input data
                 latent_inputs = torch.zeros(0).cuda()
@@ -462,20 +459,16 @@ def main_function(experiment_directory, continue_from, batch_split):
 
                 sdf_data = (sdf_data.cuda()).reshape(
                     num_samp_per_scene * scene_per_subbatch, 4
-                )
-                print("resized sdf_data.size() {}".format(sdf_data.size()))
+                ) # (262144,4)
 
                 xyz = sdf_data[:, 0:3]
                 sdf_gt = sdf_data[:, 3].unsqueeze(1)
+                # Grows the latent inputs tensor one scene/model at at time (16384, 256) x16
                 for ind in indices.numpy():
-                    latent_ind = lat_vecs[ind]
-                    print("latent_ind.size() {}".format(latent_ind.size()))
-                    latent_repeat = latent_ind.expand(num_samp_per_scene, -1)
-                    print("latent_repeat.size() {}".format(latent_repeat.size()))
-                    latent_inputs = torch.cat([latent_inputs, latent_repeat], 0)
-                    print("latent_inputs.size() {}".format(latent_inputs.size()))
-                inputs = torch.cat([latent_inputs, xyz], 1)
-                print("inputs.size() {}".format(inputs.size()))
+                    latent_ind = lat_vecs[ind] # (1,256)
+                    latent_repeat = latent_ind.expand(num_samp_per_scene, -1) #(16384,256)
+                    latent_inputs = torch.cat([latent_inputs, latent_repeat], 0)#(16384,256), (32768,256),... (262144,256)
+                inputs = torch.cat([latent_inputs, xyz], 1) #(262144,259)
 
                 if enforce_minmax:
                     sdf_gt = deep_sdf.utils.threshold_min_max(sdf_gt, min_vec, max_vec)
@@ -485,8 +478,7 @@ def main_function(experiment_directory, continue_from, batch_split):
 
                 # NN optimization
 
-                pred_sdf = decoder(inputs)
-                print("pred_sdf.size() {}".format(pred_sdf.size()))
+                pred_sdf = decoder(inputs) #(262144,1)
 
 
                 if enforce_minmax:
