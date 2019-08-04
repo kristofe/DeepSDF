@@ -321,7 +321,10 @@ def main_function(experiment_directory, continue_from, batch_split):
     logging.info("training with {} GPU(s)".format(torch.cuda.device_count()))
 
     # if torch.cuda.device_count() > 1:
-    decoder = torch.nn.DataParallel(decoder)
+    #decoder = torch.nn.DataParallel(decoder)
+
+    #DEBUG HACK
+    decoder = torch.nn.DataParallel(decoder,device_ids=[0])
 
     num_epochs = specs["NumEpochs"] # 2001
     log_frequency = get_spec_with_default(specs, "LogFrequency", 10) #10
@@ -428,7 +431,8 @@ def main_function(experiment_directory, continue_from, batch_split):
 
     logging.info("starting from epoch {}".format(start_epoch))
 
-    for epoch in range(start_epoch, num_epochs + 1):
+    for epoch in range(0, 2):
+    #for epoch in range(start_epoch, num_epochs + 1):
 
         start = time.time()
 
@@ -579,4 +583,6 @@ if __name__ == "__main__":
 
     deep_sdf.configure_logging(args)
 
+    #import cProfile
+    #cProfile.run("main_function('{}', None, {})".format(args.experiment_directory, int(args.batch_split)))
     main_function(args.experiment_directory, args.continue_from, int(args.batch_split))
