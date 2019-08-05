@@ -505,7 +505,7 @@ def main_function(experiment_directory, continue_from, batch_split):
             optimizer_all.step()
 
             # Project latent vectors onto sphere
-            if not code_bound is None:
+            if not code_bound is None: #THIS IS ON
                 deep_sdf.utils.project_vecs_onto_sphere(lat_vecs, code_bound)
 
         end = time.time()

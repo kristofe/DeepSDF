@@ -87,6 +87,8 @@ def unpack_sdf_samples(filename, subsample=None):
 def unpack_sdf_samples_from_ram(data, subsample=None):
     if subsample is None:
         return data
+
+    #data is pos and negative tensors as rows in a tensor
     pos_tensor = data[0]
     neg_tensor = data[1]
 
